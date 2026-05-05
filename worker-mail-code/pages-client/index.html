@@ -1,0 +1,41 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>邮箱接码</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+  <main class="card">
+    <section class="head">
+      <h1 class="title">邮箱验证码接收</h1>
+      <p class="desc">输入你的邮箱地址，系统会创建 1 小时有效的接码任务并自动轮询。</p>
+    </section>
+
+    <section class="body">
+      <label for="aliasEmail">邮箱地址（示例：main_openai@2925.com）</label>
+      <div class="row">
+        <input id="aliasEmail" type="email" maxlength="120" placeholder="请输入邮箱地址" autocomplete="off" />
+        <button id="startBtn" type="button">开始接码</button>
+      </div>
+
+      <div class="panel">
+        <div class="kv"><div class="k">任务 ID</div><div id="requestId" class="mono">-</div></div>
+        <div class="kv"><div class="k">任务状态</div><div id="statusText">-</div></div>
+        <div class="kv"><div class="k">验证码</div><div id="codeText" class="mono">-</div></div>
+        <div class="kv"><div class="k">过期时间</div><div id="expiresAt">-</div></div>
+        <div class="kv"><div class="k">最新提示</div><div id="tipText">等待创建任务</div></div>
+      </div>
+
+      <p class="foot">安全说明：页面不使用管理员密钥；每个任务使用独立访问令牌。</p>
+    </section>
+  </main>
+
+  <script>
+    // 生产请替换成你的 Worker 域名，例如：https://mail-api.example.com
+    window.API_BASE = window.API_BASE || 'https://YOUR-WORKER-DOMAIN';
+  </script>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

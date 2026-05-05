@@ -1,0 +1,21 @@
+﻿{
+  "name": "worker-mail-code-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "d1:local": "wrangler d1 execute mail-code-db --local --file=./schema.sql",
+    "d1:remote": "wrangler d1 execute mail-code-db --remote --file=./schema.sql"
+  },
+  "dependencies": {
+    "postal-mime": "^2.4.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260503.0",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.15.2"
+  }
+}

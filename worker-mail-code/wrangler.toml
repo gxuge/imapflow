@@ -1,0 +1,21 @@
+﻿name = "mail-code-worker"
+main = "src/index.ts"
+compatibility_date = "2026-05-05"
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+POLL_LOOKBACK_MINUTES = "10"
+MAX_EMAILS_PER_POLL = "20"
+AUTO_CREATE_ALIAS = "true"
+STORE_BODY = "false"
+CODE_EXPIRE_SECONDS = "3600"
+PUBLIC_APP_ENABLED = "true"
+PUBLIC_CREATE_LIMIT_PER_10M = "10"
+ALLOWED_ORIGINS = ""
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mail-code-db"
+database_id = "替换为实际 database_id"
