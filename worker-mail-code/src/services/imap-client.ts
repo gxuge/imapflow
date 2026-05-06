@@ -1,4 +1,4 @@
-import { connect } from 'cloudflare:sockets';
+﻿import { connect } from 'cloudflare:sockets';
 import { escapeRegExp, imapQuote } from '../utils/common';
 
 export class SimpleImapClient {
@@ -25,7 +25,7 @@ export class SimpleImapClient {
 
   /**
    * 建立 IMAP 短连接并完成登录。
-   * 这里采用最小命令集，兼容性不足时可替换为外部轮询服务。
+   * 这里使用最小命令集，兼容性不足时可替换为外部轮询服务。
    */
   async connectAndLogin(): Promise<void> {
     const secureTransport: 'on' | 'off' = this.tls ? 'on' : 'off';
@@ -41,9 +41,6 @@ export class SimpleImapClient {
 
     const login = await this.command(`LOGIN ${imapQuote(this.user)} ${imapQuote(this.pass)}`);
     if (!login.ok) throw new Error('imap_login_failed');
-
-    const select = await this.command('SELECT INBOX');
-    if (!select.ok) throw new Error('imap_select_inbox_failed');
   }
 
   async command(cmd: string): Promise<{ ok: boolean; raw: string }> {

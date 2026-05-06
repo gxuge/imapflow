@@ -1,4 +1,4 @@
-import type { Env } from '../types';
+﻿import type { Env } from '../types';
 import { safeTrim } from '../utils/common';
 
 /**
@@ -20,4 +20,3 @@ export async function logEvent(
     .bind(eventType, requestId, aliasEmail, safeTrim(payloadJson, 2000), new Date().toISOString())
     .run();
 }
-

@@ -1,4 +1,4 @@
-import { handleApi } from './routes/api';
+﻿import { handleApi } from './routes/api';
 import { handleWeb } from './routes/web';
 import { logEvent } from './services/events';
 import { pollMailbox } from './services/poll';
@@ -7,7 +7,7 @@ import { jsonError, withCors } from './utils/http';
 
 export default {
   /**
-   * Worker HTTP 入口：统一方法校验 + 路由分发 + 异常兜底。
+   * Worker HTTP 入口：统一方法校验、路由分发、异常兜底。
    */
   async fetch(request: Request, env: Env): Promise<Response> {
     const method = request.method.toUpperCase();
@@ -26,10 +26,9 @@ export default {
   },
 
   /**
-   * Cron 入口：每分钟调度一次轮询。
+   * Cron 入口：每分钟触发一次短轮询。
    */
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(pollMailbox(env, 'cron'));
   }
 };
-

@@ -1,9 +1,10 @@
-import type { Env, PollResult } from '../types';
+﻿import type { Env, PollResult } from '../types';
 import { extractCode } from './code-extractor';
 import { runDailyCleanup } from './cleanup';
 import { logEvent } from './events';
 import { parseExistsCount, SimpleImapClient } from './imap-client';
 import { parseMailFromFetch, pickTargetAlias } from './mail-parser';
+import { logError, logInfo, maskEmail } from '../utils/logger';
 import {
   buildMessageKey,
   clampInt,
@@ -15,8 +16,8 @@ import {
 } from '../utils/common';
 
 /**
- * 核心轮询函数（Cron 和手动触发共用）。
- * 所有状态均入 D1，方便可观测与审计。
+ * 核心轮询函数（Cron 与手动触发共用）。
+ * 所有状态写入 D1，便于排障与审计。
  */
 export async function pollMailbox(env: Env, source: 'cron' | 'manual'): Promise<PollResult> {
   const startedAt = new Date().toISOString();
@@ -37,6 +38,8 @@ export async function pollMailbox(env: Env, source: 'cron' | 'manual'): Promise<
     const autoCreateAlias = readBool(env.AUTO_CREATE_ALIAS, true);
     const storeBody = readBool(env.STORE_BODY, false);
 
+    logInfo('轮询开始', { source, runId, lookbackMinutes, maxEmails, autoCreateAlias, storeBody });
+
     const imap = new SimpleImapClient({
       host: mustGetEnv(env.IMAP_HOST, 'IMAP_HOST'),
       port: clampInt(Number(env.IMAP_PORT ?? '993'), 1, 65535),
@@ -54,10 +57,6 @@ export async function pollMailbox(env: Env, source: 'cron' | 'manual'): Promise<
     }
 
     const existsCount = parseExistsCount(selectResp.raw);
-    if (existsCount <= 0) {
-      scannedCount = 0;
-    }
-
     const endSeq = existsCount;
     const startSeq = Math.max(1, endSeq - maxEmails + 1);
     const seqList: number[] = [];
@@ -66,10 +65,10 @@ export async function pollMailbox(env: Env, source: 'cron' | 'manual'): Promise<
     }
     scannedCount = seqList.length;
 
+    logInfo('轮询范围已确定', { source, runId, existsCount, startSeq, endSeq, scannedCount });
+
     for (const seq of seqList) {
-      const fetchResp = await imap.command(
-        `FETCH ${seq} (UID INTERNALDATE RFC822.HEADER BODY.PEEK[TEXT])`
-      );
+      const fetchResp = await imap.command(`FETCH ${seq} (UID INTERNALDATE RFC822.HEADER BODY.PEEK[TEXT])`);
       if (!fetchResp.ok) continue;
 
       const uid = parseUidFromFetch(fetchResp.raw, String(seq));
@@ -154,6 +153,16 @@ export async function pollMailbox(env: Env, source: 'cron' | 'manual'): Promise<
             messageId: mail.messageId,
             code_found: true
           });
+
+          logInfo('验证码已命中', {
+            source,
+            runId,
+            requestId: pending.request_id,
+            aliasEmail: maskEmail(aliasEmail),
+            fromEmail: maskEmail(mail.fromEmail),
+            messageIdPresent: Boolean(mail.messageId),
+            codeFound: true
+          });
         }
       }
     }
@@ -179,6 +188,7 @@ export async function pollMailbox(env: Env, source: 'cron' | 'manual'): Promise<
       .bind(new Date().toISOString(), scannedCount, processedCount, runId)
       .run();
 
+    logInfo('轮询完成', { source, runId, scannedCount, processedCount, status: 'ok' });
     return { ok: true, runId, scannedCount, processedCount };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'poll_failed';
@@ -191,6 +201,7 @@ export async function pollMailbox(env: Env, source: 'cron' | 'manual'): Promise<
       .run();
 
     await logEvent(env, 'poll_error', null, null, { source, runId, scannedCount, processedCount, error });
+    logError('轮询失败', { source, runId, scannedCount, processedCount, error });
     return { ok: false, runId, scannedCount, processedCount, error };
   }
 }
