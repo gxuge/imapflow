@@ -9,9 +9,14 @@
   const tipEl = document.getElementById('tipText');
 
   const apiBase = '/api';
+  const POLL_INTERVAL_MS = 20000;
+  const MAX_POLL_TIMES = 3;
+
   let pollTimer = null;
   let currentRequestId = '';
   let currentAccessToken = '';
+  let pollCount = 0;
+  let isFinished = false;
 
   function setTip(v) {
     tipEl.textContent = v;
@@ -35,11 +40,27 @@
     expiresEl.textContent = v || '-';
   }
 
+  function setWaitingButton(waiting) {
+    if (waiting) {
+      startBtn.disabled = true;
+      startBtn.textContent = '正在等待中';
+    } else {
+      startBtn.disabled = false;
+      startBtn.textContent = '开始接码';
+    }
+  }
+
   function stopPolling() {
     if (pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
+  }
+
+  function resetPollState() {
+    pollCount = 0;
+    isFinished = false;
+    stopPolling();
   }
 
   async function createRequest(aliasEmail) {
@@ -64,11 +85,21 @@
     return await resp.json();
   }
 
-  async function pollOnce() {
+  async function runOnePoll() {
+    if (isFinished) return;
     if (!currentRequestId || !currentAccessToken) return;
+
+    pollCount += 1;
+    setTip('正在等待中，第 ' + pollCount + '/' + MAX_POLL_TIMES + ' 次查询...');
+
     const data = await queryRequest(currentRequestId, currentAccessToken);
     if (!data || !data.ok) {
       setTip((data && data.error) ? ('查询失败：' + data.error) : '查询失败');
+      if (pollCount >= MAX_POLL_TIMES) {
+        isFinished = true;
+        stopPolling();
+        setWaitingButton(false);
+      }
       return;
     }
 
@@ -78,15 +109,41 @@
     if (data.status === 'found') {
       setCode(data.code || '-');
       setTip('已收到验证码');
+      isFinished = true;
       stopPolling();
-    } else if (data.status === 'expired' || data.status === 'cancelled') {
+      setWaitingButton(false);
+      return;
+    }
+
+    if (data.status === 'expired' || data.status === 'cancelled') {
       setCode('-');
       setTip('任务已结束：' + formatStatus(data.status));
+      isFinished = true;
       stopPolling();
-    } else {
-      setCode('-');
-      setTip('等待邮件到达...');
+      setWaitingButton(false);
+      return;
     }
+
+    // pending 且达到上限：提示失败并结束
+    if (pollCount >= MAX_POLL_TIMES) {
+      setCode('-');
+      setTip('轮询 3 次仍未获取验证码，请稍后重试');
+      isFinished = true;
+      stopPolling();
+      setWaitingButton(false);
+    }
+  }
+
+  function startPollingLoop() {
+    resetPollState();
+    setWaitingButton(true);
+    setTip('任务已创建，20 秒后开始第 1 次查询...');
+
+    pollTimer = setInterval(function () {
+      runOnePoll().catch(function () {
+        setTip('查询过程发生异常，请稍后重试');
+      });
+    }, POLL_INTERVAL_MS);
   }
 
   testBtn.addEventListener('click', async function () {
@@ -118,18 +175,19 @@
       return;
     }
 
-    stopPolling();
+    resetPollState();
     setRequestId('-');
     setStatus('-');
     setCode('-');
     setExpires('-');
-    startBtn.disabled = true;
+    setWaitingButton(true);
     setTip('正在创建任务...');
 
     try {
       const data = await createRequest(aliasEmail);
       if (!data || !data.ok) {
         setTip((data && data.error) ? ('创建失败：' + data.error) : '创建失败');
+        setWaitingButton(false);
         return;
       }
 
@@ -138,16 +196,11 @@
       setRequestId(data.requestId);
       setStatus(data.status || 'pending');
       setExpires(data.expiresAt || '-');
-      setTip('任务已创建，开始轮询...');
 
-      await pollOnce();
-      pollTimer = setInterval(function () {
-        pollOnce();
-      }, Math.max(3000, Number(data.pollIntervalMs || 5000)));
+      startPollingLoop();
     } catch (_err) {
       setTip('网络错误，请稍后重试');
-    } finally {
-      startBtn.disabled = false;
+      setWaitingButton(false);
     }
   });
 
@@ -162,3 +215,4 @@ function formatStatus(status) {
   if (s === 'cancelled') return '已取消';
   return status || '';
 }
+
