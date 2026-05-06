@@ -9,6 +9,11 @@ Cloudflare Workers 验证码接收后台：
 
 > 你当前要求已实现：验证码任务默认 1 小时过期，过期 code 每天只清理一次。
 
+## 部署文档导航
+
+- 后端部署（Workers + D1）：[BACKEND_DEPLOY.md](./BACKEND_DEPLOY.md)
+- 前端部署（Pages + Functions 代理）：[FRONTEND_DEPLOY.md](./FRONTEND_DEPLOY.md)
+
 ## 目录结构
 
 ```txt
@@ -35,6 +40,15 @@ worker-mail-code/
     utils/
       common.ts
       http.ts
+  pages-client/
+    index.html
+    _headers
+    assets/
+      app.js
+      style.css
+    functions/
+      api/
+        [[path]].js
   README.md
 ```
 
@@ -167,24 +181,22 @@ pages-client/
 
 操作步骤：
 1. 在 Cloudflare Pages 新建项目，直接上传 `pages-client` 目录。
-2. 修改 `pages-client/index.html` 的
-   `<meta name="api-base" content="https://YOUR-WORKER-DOMAIN" />`
-   为你的 Worker 域名（例如 `https://mail-code-worker.xxx.workers.dev`）。
-3. 在 Worker 侧设置 CORS 白名单：
-   - `ALLOWED_ORIGIN=https://你的-pages-域名`
-   - 或 `ALLOWED_ORIGINS=https://prod.pages.dev,https://*.pages.dev`（支持 `*` 通配）
-4. 重新部署 Worker。
+2. 在 Pages 项目变量中新增：
+   - `BACKEND_ORIGIN=https://你的-worker域名`（例如 `https://mail-code-worker.xxx.workers.dev`）
+3. 确保 `pages-client/functions/api/[[path]].js` 已随代码发布（这是同域代理层）。
+4. 重新部署 Pages。
 
 注意：
-- Pages 前端会发送 `x-access-token` 请求头，Worker 已放行该 CORS 预检头。
-- `pages-client/_headers` 已附带安全响应头模板，默认 `connect-src 'self' https:`，无需再改占位符。
+- 前端用户无需填写后端地址，页面只调用同域 `/api/*`。
+- 真实 Worker 地址只在 Pages 变量 `BACKEND_ORIGIN` 中保存，不暴露在前端源码里。
+- `pages-client/_headers` 已附带安全响应头模板，`connect-src` 仅允许 `'self'`。
 
 ## 8) 用户前端页面
 
 部署后直接访问：
 
 ```txt
-https://<your-worker-domain>/
+https://<your-pages-domain>/
 ```
 
 页面会调用公开接口：

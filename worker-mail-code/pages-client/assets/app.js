@@ -1,6 +1,5 @@
 (function () {
   const aliasInput = document.getElementById('aliasEmail');
-  const apiBaseInput = document.getElementById('apiBaseInput');
   const startBtn = document.getElementById('startBtn');
   const testBtn = document.getElementById('testBtn');
   const requestIdEl = document.getElementById('requestId');
@@ -9,9 +8,7 @@
   const expiresEl = document.getElementById('expiresAt');
   const tipEl = document.getElementById('tipText');
 
-  const metaApiBase = readMetaApiBase();
-  const savedApiBase = localStorage.getItem('mail_code_api_base') || '';
-  apiBaseInput.value = normalizeBase(savedApiBase || metaApiBase);
+  const apiBase = '/api';
 
   let pollTimer = null;
   let currentRequestId = '';
@@ -46,19 +43,11 @@
     }
   }
 
-  function readApiBase() {
-    const apiBase = normalizeBase(String(apiBaseInput.value || ''));
-    if (!apiBase || apiBase.includes('YOUR-WORKER-DOMAIN')) {
-      return '';
-    }
-    return apiBase;
+  function isApiBaseReady() {
+    return true;
   }
 
-  function saveApiBase(v) {
-    localStorage.setItem('mail_code_api_base', v);
-  }
-
-  async function createRequest(apiBase, aliasEmail) {
+  async function createRequest(aliasEmail) {
     const resp = await fetch(apiBase + '/api/public/requests', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -67,7 +56,7 @@
     return await resp.json();
   }
 
-  async function queryRequest(apiBase, requestId, accessToken) {
+  async function queryRequest(requestId, accessToken) {
     const resp = await fetch(apiBase + '/api/public/requests/' + encodeURIComponent(requestId), {
       method: 'GET',
       headers: { 'x-access-token': accessToken }
@@ -75,14 +64,14 @@
     return await resp.json();
   }
 
-  async function testConnection(apiBase) {
+  async function testConnection() {
     const resp = await fetch(apiBase + '/api/public/connection-test', { method: 'GET' });
     return await resp.json();
   }
 
-  async function pollOnce(apiBase) {
+  async function pollOnce() {
     if (!currentRequestId || !currentAccessToken) return;
-    const data = await queryRequest(apiBase, currentRequestId, currentAccessToken);
+    const data = await queryRequest(currentRequestId, currentAccessToken);
     if (!data || !data.ok) {
       setTip((data && data.error) ? ('查询失败：' + data.error) : '查询失败');
       return;
@@ -106,38 +95,35 @@
   }
 
   testBtn.addEventListener('click', async function () {
-    const apiBase = readApiBase();
-    if (!apiBase) {
-      setTip('请先填写后端 API 地址');
+    if (!isApiBaseReady()) {
+      setTip('系统未配置后端地址，请联系管理员');
       return;
     }
 
     testBtn.disabled = true;
     setTip('正在测试连接...');
     try {
-      const data = await testConnection(apiBase);
+      const data = await testConnection();
       if (!data || !data.ok) {
         setTip((data && data.error) ? ('连接失败：' + data.error) : '连接失败');
         return;
       }
 
-      saveApiBase(apiBase);
       const parts = [];
       parts.push(data.dbReady ? 'D1正常' : 'D1异常');
       parts.push(data.imapConfigReady ? 'IMAP已配置' : 'IMAP未配置');
       parts.push(data.publicAppEnabled ? '公开接口已启用' : '公开接口未启用');
       setTip('连接成功：' + parts.join(' / '));
     } catch (_err) {
-      setTip('连接失败：请检查 API 地址、CORS 和 CSP');
+      setTip('连接失败：请检查网络或联系管理员');
     } finally {
       testBtn.disabled = false;
     }
   });
 
   startBtn.addEventListener('click', async function () {
-    const apiBase = readApiBase();
-    if (!apiBase) {
-      setTip('请先填写后端 API 地址');
+    if (!isApiBaseReady()) {
+      setTip('系统未配置后端地址，请联系管理员');
       return;
     }
 
@@ -147,7 +133,6 @@
       return;
     }
 
-    saveApiBase(apiBase);
     stopPolling();
     setRequestId('-');
     setStatus('-');
@@ -157,7 +142,7 @@
     setTip('正在创建任务...');
 
     try {
-      const data = await createRequest(apiBase, aliasEmail);
+      const data = await createRequest(aliasEmail);
       if (!data || !data.ok) {
         setTip((data && data.error) ? ('创建失败：' + data.error) : '创建失败');
         return;
@@ -170,9 +155,9 @@
       setExpires(data.expiresAt || '-');
       setTip('任务已创建，开始轮询');
 
-      await pollOnce(apiBase);
+      await pollOnce();
       pollTimer = setInterval(function () {
-        pollOnce(apiBase);
+        pollOnce();
       }, Math.max(3000, Number(data.pollIntervalMs || 5000)));
     } catch (_err) {
       setTip('网络错误，请稍后重试');
@@ -181,18 +166,5 @@
     }
   });
 
-  if (!readApiBase()) {
-    setTip('请先填写后端 API 地址并点击连接测试');
-  }
+  testBtn.click();
 })();
-
-function normalizeBase(input) {
-  const v = String(input || '').trim().replace(/\/+$/, '');
-  return v;
-}
-
-function readMetaApiBase() {
-  const node = document.querySelector('meta[name="api-base"]');
-  return node ? String(node.getAttribute('content') || '').trim() : '';
-}
-
