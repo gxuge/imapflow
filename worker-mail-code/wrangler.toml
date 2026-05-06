@@ -2,6 +2,10 @@ name = "mail-code-worker"
 main = "src/index.ts"
 compatibility_date = "2026-05-05"
 
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [triggers]
 crons = ["* * * * *"]
 
