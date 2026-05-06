@@ -18,4 +18,4 @@ ALLOWED_ORIGINS = ""
 [[d1_databases]]
 binding = "DB"
 database_name = "mail-code-db"
-database_id = "替换为实际 database_id"
+database_id = "fcd8bd8f-5b56-4f6c-b4fb-6a8a8efd8ce5"
