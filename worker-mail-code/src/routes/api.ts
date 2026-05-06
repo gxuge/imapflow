@@ -76,12 +76,48 @@ async function handlePublicApi(url: URL, request: Request, env: Env): Promise<Re
     return handlePublicCreateRequest(request, env);
   }
 
+  if (url.pathname === '/api/public/connection-test' && method === 'GET') {
+    return handlePublicConnectionTest(request, env);
+  }
+
   const match = url.pathname.match(/^\/api\/public\/requests\/([^/]+)$/);
   if (match && method === 'GET') {
     return handlePublicGetRequest(match[1], url, request, env);
   }
 
   return jsonError('not_found', 404, request, env);
+}
+
+/**
+ * 公开连接测试：
+ * - 验证前端是否能跨域访问 Worker
+ * - 验证 D1 是否可读
+ * - 验证 IMAP 关键配置是否已填写（不返回明文）
+ */
+async function handlePublicConnectionTest(request: Request, env: Env): Promise<Response> {
+  const dbRow = await env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>().catch(() => null);
+  const dbReady = Number(dbRow?.ok ?? 0) === 1;
+
+  const imapConfigReady = Boolean(
+    env.IMAP_HOST?.trim() &&
+      env.IMAP_PORT?.trim() &&
+      env.IMAP_USER?.trim() &&
+      env.IMAP_PASS?.trim()
+  );
+
+  return json(
+    {
+      ok: true,
+      workerTime: new Date().toISOString(),
+      publicAppEnabled: isPublicAppEnabled(env),
+      dbReady,
+      imapConfigReady,
+      message: dbReady && imapConfigReady ? 'connection_ok' : 'config_incomplete'
+    },
+    200,
+    request,
+    env
+  );
 }
 
 /**

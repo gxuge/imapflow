@@ -44,11 +44,13 @@ input {
 }
 input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(13, 91, 215, 0.12); }
 .row { display: flex; gap: 10px; align-items: center; }
+.row-wrap { flex-wrap: wrap; }
 button {
   border: 0; border-radius: 10px; padding: 11px 16px; color: #fff;
   background: var(--brand); cursor: pointer; font-weight: 600;
 }
 button:disabled { opacity: .6; cursor: not-allowed; }
+.btn-secondary { background: #2f3d56; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .panel {
   border: 1px dashed var(--line); border-radius: 10px; padding: 14px;

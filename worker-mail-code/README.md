@@ -167,7 +167,9 @@ pages-client/
 
 操作步骤：
 1. 在 Cloudflare Pages 新建项目，直接上传 `pages-client` 目录。
-2. 修改 `pages-client/index.html` 里的 `window.API_BASE` 为你的 Worker 域名。
+2. 修改 `pages-client/index.html` 的
+   `<meta name="api-base" content="https://YOUR-WORKER-DOMAIN" />`
+   为你的 Worker 域名（例如 `https://mail-code-worker.xxx.workers.dev`）。
 3. 在 Worker 侧设置 CORS 白名单：
    - `ALLOWED_ORIGIN=https://你的-pages-域名`
    - 或 `ALLOWED_ORIGINS=https://prod.pages.dev,https://*.pages.dev`（支持 `*` 通配）
@@ -175,7 +177,7 @@ pages-client/
 
 注意：
 - Pages 前端会发送 `x-access-token` 请求头，Worker 已放行该 CORS 预检头。
-- `pages-client/_headers` 已附带安全响应头模板，记得把 CSP 里的 `YOUR-WORKER-DOMAIN` 替换成真实域名。
+- `pages-client/_headers` 已附带安全响应头模板，默认 `connect-src 'self' https:`，无需再改占位符。
 
 ## 8) 用户前端页面
 
@@ -188,6 +190,7 @@ https://<your-worker-domain>/
 页面会调用公开接口：
 - `POST /api/public/requests`
 - `GET /api/public/requests/:requestId`（`x-access-token` 请求头）
+- `GET /api/public/connection-test`（连接测试）
 
 公开接口安全机制：
 - 不使用 `ADMIN_TOKEN`

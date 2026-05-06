@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="api-base" content="https://YOUR-WORKER-DOMAIN" />
   <title>邮箱接码</title>
   <link rel="stylesheet" href="/assets/style.css" />
 </head>
@@ -14,6 +15,12 @@
     </section>
 
     <section class="body">
+      <label for="apiBaseInput">后端 API 地址（Worker 域名）</label>
+      <div class="row row-wrap">
+        <input id="apiBaseInput" type="url" placeholder="https://xxx.workers.dev" autocomplete="off" />
+        <button id="testBtn" type="button" class="btn-secondary">连接测试</button>
+      </div>
+
       <label for="aliasEmail">邮箱地址（示例：main_openai@2925.com）</label>
       <div class="row">
         <input id="aliasEmail" type="email" maxlength="120" placeholder="请输入邮箱地址" autocomplete="off" />
@@ -32,10 +39,6 @@
     </section>
   </main>
 
-  <script>
-    // 生产请替换成你的 Worker 域名，例如：https://mail-api.example.com
-    window.API_BASE = window.API_BASE || 'https://YOUR-WORKER-DOMAIN';
-  </script>
   <script src="/assets/app.js" defer></script>
 </body>
 </html>
