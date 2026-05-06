@@ -17,6 +17,8 @@
   let currentAccessToken = '';
   let pollCount = 0;
   let isFinished = false;
+  let isTesting = false;
+  let isWaiting = false;
 
   function setTip(v) {
     tipEl.textContent = v;
@@ -37,17 +39,13 @@
   }
 
   function setExpires(v) {
-    expiresEl.textContent = v || '-';
+    expiresEl.textContent = formatDateTime(v);
   }
 
-  function setWaitingButton(waiting) {
-    if (waiting) {
-      startBtn.disabled = true;
-      startBtn.textContent = '正在等待中';
-    } else {
-      startBtn.disabled = false;
-      startBtn.textContent = '开始接码';
-    }
+  function syncButtons() {
+    startBtn.disabled = isTesting || isWaiting;
+    testBtn.disabled = isTesting || isWaiting;
+    startBtn.textContent = isWaiting ? '正在等待中' : '开始接码';
   }
 
   function stopPolling() {
@@ -61,6 +59,11 @@
     pollCount = 0;
     isFinished = false;
     stopPolling();
+  }
+
+  function finishWaiting() {
+    isWaiting = false;
+    syncButtons();
   }
 
   async function createRequest(aliasEmail) {
@@ -96,9 +99,10 @@
     if (!data || !data.ok) {
       setTip((data && data.error) ? ('查询失败：' + data.error) : '查询失败');
       if (pollCount >= MAX_POLL_TIMES) {
+        setStatus('failed');
         isFinished = true;
         stopPolling();
-        setWaitingButton(false);
+        finishWaiting();
       }
       return;
     }
@@ -111,7 +115,7 @@
       setTip('已收到验证码');
       isFinished = true;
       stopPolling();
-      setWaitingButton(false);
+      finishWaiting();
       return;
     }
 
@@ -120,34 +124,40 @@
       setTip('任务已结束：' + formatStatus(data.status));
       isFinished = true;
       stopPolling();
-      setWaitingButton(false);
+      finishWaiting();
       return;
     }
 
-    // pending 且达到上限：提示失败并结束
     if (pollCount >= MAX_POLL_TIMES) {
       setCode('-');
+      setStatus('failed');
       setTip('轮询 3 次仍未获取验证码，请稍后重试');
       isFinished = true;
       stopPolling();
-      setWaitingButton(false);
+      finishWaiting();
     }
   }
 
   function startPollingLoop() {
     resetPollState();
-    setWaitingButton(true);
     setTip('任务已创建，20 秒后开始第 1 次查询...');
 
     pollTimer = setInterval(function () {
       runOnePoll().catch(function () {
+        setStatus('failed');
         setTip('查询过程发生异常，请稍后重试');
+        isFinished = true;
+        stopPolling();
+        finishWaiting();
       });
     }, POLL_INTERVAL_MS);
   }
 
   testBtn.addEventListener('click', async function () {
-    testBtn.disabled = true;
+    if (isWaiting) return;
+    isTesting = true;
+    syncButtons();
+
     setTip('正在测试连接...');
     try {
       const data = await testConnection();
@@ -164,11 +174,14 @@
     } catch (_err) {
       setTip('连接失败：请检查网络或联系管理员');
     } finally {
-      testBtn.disabled = false;
+      isTesting = false;
+      syncButtons();
     }
   });
 
   startBtn.addEventListener('click', async function () {
+    if (isTesting || isWaiting) return;
+
     const aliasEmail = String(aliasInput.value || '').trim().toLowerCase();
     if (!aliasEmail) {
       setTip('请先输入邮箱地址');
@@ -176,18 +189,20 @@
     }
 
     resetPollState();
+    isWaiting = true;
+    syncButtons();
+
     setRequestId('-');
     setStatus('-');
     setCode('-');
     setExpires('-');
-    setWaitingButton(true);
     setTip('正在创建任务...');
 
     try {
       const data = await createRequest(aliasEmail);
       if (!data || !data.ok) {
         setTip((data && data.error) ? ('创建失败：' + data.error) : '创建失败');
-        setWaitingButton(false);
+        finishWaiting();
         return;
       }
 
@@ -200,10 +215,11 @@
       startPollingLoop();
     } catch (_err) {
       setTip('网络错误，请稍后重试');
-      setWaitingButton(false);
+      finishWaiting();
     }
   });
 
+  syncButtons();
   testBtn.click();
 })();
 
@@ -213,6 +229,13 @@ function formatStatus(status) {
   if (s === 'found') return '已找到';
   if (s === 'expired') return '已过期';
   if (s === 'cancelled') return '已取消';
+  if (s === 'failed') return '失败';
   return status || '';
 }
 
+function formatDateTime(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString('zh-CN', { hour12: false });
+}

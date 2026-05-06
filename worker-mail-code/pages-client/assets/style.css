@@ -48,6 +48,8 @@ input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(13, 91, 215
 button {
   border: 0; border-radius: 10px; padding: 11px 16px; color: #fff;
   background: var(--brand); cursor: pointer; font-weight: 600;
+  white-space: nowrap;
+  min-width: 132px;
 }
 button:disabled { opacity: .6; cursor: not-allowed; }
 .btn-secondary { background: #2f3d56; }
@@ -60,5 +62,5 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .k { color: var(--muted); }
 .status-pending { color: var(--warn); }
 .status-found { color: var(--ok); }
-.status-expired, .status-cancelled { color: var(--bad); }
+.status-expired, .status-cancelled, .status-failed { color: var(--bad); }
 .foot { color: var(--muted); font-size: 12px; line-height: 1.6; }
