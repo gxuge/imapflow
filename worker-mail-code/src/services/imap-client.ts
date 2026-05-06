@@ -124,6 +124,17 @@ export function parseSearchUids(raw: string): string[] {
   return out;
 }
 
+export function parseExistsCount(raw: string): number {
+  let exists = 0;
+  for (const line of raw.split(/\r\n/)) {
+    const m = line.match(/^\*\s+(\d+)\s+EXISTS$/i);
+    if (m) {
+      exists = Number(m[1]);
+    }
+  }
+  return Number.isFinite(exists) ? exists : 0;
+}
+
 export function extractLiteral(raw: string, token: string): string | null {
   const re = new RegExp(`${escapeRegExp(token)}\\s+\\{(\\d+)\\}\\r\\n`, 'i');
   const m = re.exec(raw);
@@ -138,4 +149,3 @@ function findTaggedLine(raw: string, tag: string): string {
   for (const line of lines) if (line.startsWith(`${tag} `)) return line;
   return `${tag} BAD unknown`;
 }
-

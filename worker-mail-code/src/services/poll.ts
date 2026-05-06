@@ -2,12 +2,11 @@ import type { Env, PollResult } from '../types';
 import { extractCode } from './code-extractor';
 import { runDailyCleanup } from './cleanup';
 import { logEvent } from './events';
-import { parseSearchUids, SimpleImapClient } from './imap-client';
+import { parseExistsCount, SimpleImapClient } from './imap-client';
 import { parseMailFromFetch, pickTargetAlias } from './mail-parser';
 import {
   buildMessageKey,
   clampInt,
-  formatImapDate,
   mustGetEnv,
   readBool,
   summarizeText,
@@ -48,20 +47,34 @@ export async function pollMailbox(env: Env, source: 'cron' | 'manual'): Promise<
 
     await imap.connectAndLogin();
 
-    const sinceDate = new Date(Date.now() - lookbackMinutes * 60 * 1000);
-    const searchResp = await imap.command(`UID SEARCH SINCE ${formatImapDate(sinceDate)}`);
-    const uids = parseSearchUids(searchResp.raw);
-    const targets = uids.slice(Math.max(0, uids.length - maxEmails));
-    scannedCount = targets.length;
+    // 2925 实测不支持 SEARCH，改为 SELECT + FETCH 最近 N 封。
+    const selectResp = await imap.command('SELECT INBOX');
+    if (!selectResp.ok) {
+      throw new Error('imap_select_inbox_failed');
+    }
 
-    for (const uid of targets) {
+    const existsCount = parseExistsCount(selectResp.raw);
+    if (existsCount <= 0) {
+      scannedCount = 0;
+    }
+
+    const endSeq = existsCount;
+    const startSeq = Math.max(1, endSeq - maxEmails + 1);
+    const seqList: number[] = [];
+    for (let seq = startSeq; seq <= endSeq; seq++) {
+      seqList.push(seq);
+    }
+    scannedCount = seqList.length;
+
+    for (const seq of seqList) {
       const fetchResp = await imap.command(
-        `UID FETCH ${uid} (UID INTERNALDATE RFC822.HEADER BODY.PEEK[TEXT])`
+        `FETCH ${seq} (UID INTERNALDATE RFC822.HEADER BODY.PEEK[TEXT])`
       );
       if (!fetchResp.ok) continue;
 
+      const uid = parseUidFromFetch(fetchResp.raw, String(seq));
       const mail = await parseMailFromFetch(fetchResp.raw, uid);
-      if (Date.now() - new Date(mail.receivedAt).getTime() > lookbackMinutes * 60 * 1000) continue;
+      if (!isWithinLookback(mail.receivedAt, lookbackMinutes)) continue;
 
       const messageKey = await buildMessageKey(mail);
       const exists = await env.DB.prepare(
@@ -193,3 +206,15 @@ export async function ensureAlias(env: Env, aliasEmail: string, enabled: boolean
     .run();
 }
 
+function parseUidFromFetch(raw: string, fallback: string): string {
+  const m = raw.match(/\bUID\s+(\d+)\b/i);
+  if (m && m[1]) return m[1];
+  return fallback;
+}
+
+function isWithinLookback(receivedAt: string, lookbackMinutes: number): boolean {
+  const ts = new Date(receivedAt).getTime();
+  if (!Number.isFinite(ts)) return true;
+  const ageMs = Date.now() - ts;
+  return ageMs <= lookbackMinutes * 60 * 1000;
+}
