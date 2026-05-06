@@ -9,7 +9,6 @@
   const tipEl = document.getElementById('tipText');
 
   const apiBase = '/api';
-
   let pollTimer = null;
   let currentRequestId = '';
   let currentAccessToken = '';
@@ -20,7 +19,7 @@
 
   function setStatus(v) {
     statusEl.className = '';
-    statusEl.textContent = v || '-';
+    statusEl.textContent = formatStatus(v) || '-';
     if (v) statusEl.classList.add('status-' + String(v).toLowerCase());
   }
 
@@ -43,12 +42,8 @@
     }
   }
 
-  function isApiBaseReady() {
-    return true;
-  }
-
   async function createRequest(aliasEmail) {
-    const resp = await fetch(apiBase + '/api/public/requests', {
+    const resp = await fetch(apiBase + '/public/requests', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ aliasEmail })
@@ -57,7 +52,7 @@
   }
 
   async function queryRequest(requestId, accessToken) {
-    const resp = await fetch(apiBase + '/api/public/requests/' + encodeURIComponent(requestId), {
+    const resp = await fetch(apiBase + '/public/requests/' + encodeURIComponent(requestId), {
       method: 'GET',
       headers: { 'x-access-token': accessToken }
     });
@@ -65,7 +60,7 @@
   }
 
   async function testConnection() {
-    const resp = await fetch(apiBase + '/api/public/connection-test', { method: 'GET' });
+    const resp = await fetch(apiBase + '/public/connection-test', { method: 'GET' });
     return await resp.json();
   }
 
@@ -82,11 +77,11 @@
 
     if (data.status === 'found') {
       setCode(data.code || '-');
-      setTip('已命中验证码');
+      setTip('已收到验证码');
       stopPolling();
     } else if (data.status === 'expired' || data.status === 'cancelled') {
       setCode('-');
-      setTip('任务已结束：' + data.status);
+      setTip('任务已结束：' + formatStatus(data.status));
       stopPolling();
     } else {
       setCode('-');
@@ -95,11 +90,6 @@
   }
 
   testBtn.addEventListener('click', async function () {
-    if (!isApiBaseReady()) {
-      setTip('系统未配置后端地址，请联系管理员');
-      return;
-    }
-
     testBtn.disabled = true;
     setTip('正在测试连接...');
     try {
@@ -110,8 +100,8 @@
       }
 
       const parts = [];
-      parts.push(data.dbReady ? 'D1正常' : 'D1异常');
-      parts.push(data.imapConfigReady ? 'IMAP已配置' : 'IMAP未配置');
+      parts.push(data.dbReady ? 'D1 正常' : 'D1 未就绪');
+      parts.push(data.imapConfigReady ? 'IMAP 已配置' : 'IMAP 未配置');
       parts.push(data.publicAppEnabled ? '公开接口已启用' : '公开接口未启用');
       setTip('连接成功：' + parts.join(' / '));
     } catch (_err) {
@@ -122,11 +112,6 @@
   });
 
   startBtn.addEventListener('click', async function () {
-    if (!isApiBaseReady()) {
-      setTip('系统未配置后端地址，请联系管理员');
-      return;
-    }
-
     const aliasEmail = String(aliasInput.value || '').trim().toLowerCase();
     if (!aliasEmail) {
       setTip('请先输入邮箱地址');
@@ -153,7 +138,7 @@
       setRequestId(data.requestId);
       setStatus(data.status || 'pending');
       setExpires(data.expiresAt || '-');
-      setTip('任务已创建，开始轮询');
+      setTip('任务已创建，开始轮询...');
 
       await pollOnce();
       pollTimer = setInterval(function () {
@@ -168,3 +153,12 @@
 
   testBtn.click();
 })();
+
+function formatStatus(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'pending') return '等待中';
+  if (s === 'found') return '已找到';
+  if (s === 'expired') return '已过期';
+  if (s === 'cancelled') return '已取消';
+  return status || '';
+}
