@@ -27,7 +27,13 @@
       <div class="panel">
         <div class="kv"><div class="k">任务 ID</div><div id="requestId" class="mono">-</div></div>
         <div class="kv"><div class="k">任务状态</div><div id="statusText">-</div></div>
-        <div class="kv"><div class="k">验证码</div><div id="codeText" class="mono">-</div></div>
+        <div class="kv">
+          <div class="k">验证码</div>
+          <div class="code-row">
+            <div id="codeText" class="mono code-text">-</div>
+            <button id="copyCodeBtn" type="button" class="btn-copy" disabled>复制</button>
+          </div>
+        </div>
         <div class="kv"><div class="k">过期时间</div><div id="expiresAt">-</div></div>
         <div class="kv"><div class="k">最新提示</div><div id="tipText">等待创建任务</div></div>
       </div>

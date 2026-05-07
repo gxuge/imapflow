@@ -60,6 +60,15 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 }
 .kv { display: grid; grid-template-columns: 126px 1fr; gap: 10px; font-size: 14px; }
 .k { color: var(--muted); }
+.code-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.code-text { font-size: 28px; font-weight: 800; letter-spacing: 1px; color: var(--ink); }
+.btn-copy {
+  min-width: 84px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  background: #2f3d56;
+}
 .status-pending { color: var(--warn); }
 .status-found { color: var(--ok); }
 .status-expired, .status-cancelled, .status-failed { color: var(--bad); }

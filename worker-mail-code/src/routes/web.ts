@@ -1,8 +1,8 @@
-import type { Env } from '../types';
+﻿import type { Env } from '../types';
 import { isPublicAppEnabled } from '../services/public-security';
 
 /**
- * 返回用户接码页面。该页面只调用 /api/public/* 接口，不接触 ADMIN_TOKEN。
+ * 杩斿洖鐢ㄦ埛鎺ョ爜椤甸潰銆傝椤甸潰鍙皟鐢?/api/public/* 鎺ュ彛锛屼笉鎺ヨЕ ADMIN_TOKEN銆?
  */
 export async function handleWeb(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url);
@@ -42,7 +42,7 @@ function renderHtml(nonce: string): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>邮箱接码</title>
+  <title>閭鎺ョ爜</title>
   <style nonce="${nonce}">
     :root {
       --bg: #f6f7f9;
@@ -118,6 +118,15 @@ function renderHtml(nonce: string): string {
     }
     .kv { display: grid; grid-template-columns: 126px 1fr; gap: 10px; font-size: 14px; }
     .k { color: var(--muted); }
+    .code-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .code-text { font-size: 28px; font-weight: 800; letter-spacing: 1px; color: var(--ink); }
+    .btn-copy {
+      min-width: 84px;
+      padding: 8px 12px;
+      font-size: 13px;
+      border-radius: 8px;
+      background: #2f3d56;
+    }
     .status-pending { color: var(--warn); }
     .status-found { color: var(--ok); }
     .status-expired, .status-cancelled { color: var(--bad); }
@@ -127,23 +136,23 @@ function renderHtml(nonce: string): string {
 <body>
   <main class="card">
     <section class="head">
-      <h1 class="title">邮箱验证码接收</h1>
-      <p class="desc">输入你的邮箱地址，系统会自动创建 1 小时有效的接码任务并轮询结果。</p>
+      <h1 class="title">閭楠岃瘉鐮佹帴鏀?/h1>
+      <p class="desc">杈撳叆浣犵殑閭鍦板潃锛岀郴缁熶細鑷姩鍒涘缓 1 灏忔椂鏈夋晥鐨勬帴鐮佷换鍔″苟杞缁撴灉銆?/p>
     </section>
     <section class="body">
-      <label for="aliasEmail">邮箱地址（示例：main_openai@2925.com）</label>
+      <label for="aliasEmail">閭鍦板潃锛堢ず渚嬶細main_openai@2925.com锛?/label>
       <div class="row">
-        <input id="aliasEmail" type="email" placeholder="请输入邮箱地址" maxlength="120" autocomplete="off" />
-        <button id="startBtn" type="button">开始接码</button>
+        <input id="aliasEmail" type="email" placeholder="璇疯緭鍏ラ偖绠卞湴鍧€" maxlength="120" autocomplete="off" />
+        <button id="startBtn" type="button">寮€濮嬫帴鐮?/button>
       </div>
       <div class="panel">
-        <div class="kv"><div class="k">任务 ID</div><div id="requestId" class="mono">-</div></div>
-        <div class="kv"><div class="k">任务状态</div><div id="statusText">-</div></div>
-        <div class="kv"><div class="k">验证码</div><div id="codeText" class="mono">-</div></div>
-        <div class="kv"><div class="k">过期时间</div><div id="expiresAt">-</div></div>
-        <div class="kv"><div class="k">最新提示</div><div id="tipText">等待创建任务</div></div>
+        <div class="kv"><div class="k">浠诲姟 ID</div><div id="requestId" class="mono">-</div></div>
+        <div class="kv"><div class="k">浠诲姟鐘舵€?/div><div id="statusText">-</div></div>
+        <div class="kv"><div class="k">楠岃瘉鐮?/div><div class="code-row"><div id="codeText" class="mono code-text">-</div><button id="copyCodeBtn" type="button" class="btn-copy" disabled>澶嶅埗</button></div></div>
+        <div class="kv"><div class="k">杩囨湡鏃堕棿</div><div id="expiresAt">-</div></div>
+        <div class="kv"><div class="k">鏈€鏂版彁绀?/div><div id="tipText">绛夊緟鍒涘缓浠诲姟</div></div>
       </div>
-      <p class="foot">安全说明：页面不会保存管理员密钥；每个任务都有独立访问令牌，只能查询自己的任务。</p>
+      <p class="foot">瀹夊叏璇存槑锛氶〉闈笉浼氫繚瀛樼鐞嗗憳瀵嗛挜锛涙瘡涓换鍔￠兘鏈夌嫭绔嬭闂护鐗岋紝鍙兘鏌ヨ鑷繁鐨勪换鍔°€?/p>
     </section>
   </main>
 
@@ -154,6 +163,7 @@ function renderHtml(nonce: string): string {
       const requestIdEl = document.getElementById('requestId');
       const statusEl = document.getElementById('statusText');
       const codeEl = document.getElementById('codeText');
+      const copyCodeBtn = document.getElementById('copyCodeBtn');
       const expiresEl = document.getElementById('expiresAt');
       const tipEl = document.getElementById('tipText');
 
@@ -169,7 +179,13 @@ function renderHtml(nonce: string): string {
         statusEl.textContent = v || '-';
         if (v) statusEl.classList.add('status-' + String(v).toLowerCase());
       }
-      function setCode(v) { codeEl.textContent = v || '-'; }
+      function setCode(v) {
+        const text = v || '-';
+        codeEl.textContent = text;
+        if (copyCodeBtn) {
+          copyCodeBtn.disabled = !v || text === '-';
+        }
+      }
       function setRequestId(v) { requestIdEl.textContent = v || '-'; }
       function setExpires(v) { expiresEl.textContent = v || '-'; }
       function stopPolling() {
@@ -211,41 +227,67 @@ function renderHtml(nonce: string): string {
         return await resp.json();
       }
 
+      async function copyCurrentCode() {
+        const code = String(codeEl.textContent || '').trim();
+        if (!code || code === '-') {
+          setTip('当前暂无可复制的验证码');
+          return;
+        }
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(code);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = code;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          setTip('楠岃瘉鐮佸凡澶嶅埗');
+        } catch (_err) {
+          setTip('澶嶅埗澶辫触锛岃鎵嬪姩澶嶅埗');
+        }
+      }
+
       async function pollOnce() {
         if (!currentRequestId || !currentAccessToken) return;
         pollCount += 1;
         if (pollCount > MAX_POLL_TIMES) {
           setStatus('failed');
-          setTip('轮询 6 次仍未获取验证码，请稍后重试');
+          setTip('杞 6 娆′粛鏈幏鍙栭獙璇佺爜锛岃绋嶅悗閲嶈瘯');
           stopPolling();
           return;
         }
         await triggerFetch(currentRequestId, currentAccessToken);
         const data = await queryRequest(currentRequestId, currentAccessToken);
         if (!data || !data.ok) {
-          setTip((data && data.error) ? ('查询失败：' + data.error) : '查询失败');
+          setTip((data && data.error) ? ('鏌ヨ澶辫触锛? + data.error) : '鏌ヨ澶辫触');
           return;
         }
         setStatus(data.status);
         setExpires(data.expiresAt || '-');
         if (data.status === 'found') {
           setCode(data.code || '-');
-          setTip('已命中验证码');
+          setTip('宸插懡涓獙璇佺爜');
           stopPolling();
         } else if (data.status === 'expired' || data.status === 'cancelled') {
           setCode('-');
-          setTip('任务已结束：' + data.status);
+          setTip('浠诲姟宸茬粨鏉燂細' + data.status);
           stopPolling();
         } else {
           setCode('-');
-          setTip('等待邮件到达...');
+          setTip('绛夊緟閭欢鍒拌揪...');
         }
       }
 
       startBtn.addEventListener('click', async function () {
         const aliasEmail = String(aliasInput.value || '').trim().toLowerCase();
         if (!aliasEmail) {
-          setTip('请先输入邮箱地址');
+          setTip('璇峰厛杈撳叆閭鍦板潃');
           return;
         }
 
@@ -256,12 +298,12 @@ function renderHtml(nonce: string): string {
         setCode('-');
         setExpires('-');
         startBtn.disabled = true;
-        setTip('正在创建任务...');
+        setTip('姝ｅ湪鍒涘缓浠诲姟...');
 
         try {
           const data = await createRequest(aliasEmail);
           if (!data || !data.ok) {
-            setTip((data && data.error) ? ('创建失败：' + data.error) : '创建失败');
+            setTip((data && data.error) ? ('鍒涘缓澶辫触锛? + data.error) : '鍒涘缓澶辫触');
             return;
           }
 
@@ -271,15 +313,23 @@ function renderHtml(nonce: string): string {
           setRequestId(data.requestId);
           setStatus(data.status || 'pending');
           setExpires(data.expiresAt || '-');
-          setTip('任务已创建，10 秒后开始第 1 次查询...');
+          setTip('浠诲姟宸插垱寤猴紝10 绉掑悗寮€濮嬬 1 娆℃煡璇?..');
 
           pollTimer = setInterval(pollOnce, Math.max(3000, Number(data.pollIntervalMs || 10000)));
         } catch (_err) {
-          setTip('网络错误，请稍后重试');
+          setTip('缃戠粶閿欒锛岃绋嶅悗閲嶈瘯');
         } finally {
           startBtn.disabled = false;
         }
       });
+
+      if (copyCodeBtn) {
+        copyCodeBtn.addEventListener('click', function () {
+          copyCurrentCode().catch(function () {
+            setTip('澶嶅埗澶辫触锛岃鎵嬪姩澶嶅埗');
+          });
+        });
+      }
     })();
   </script>
 </body>

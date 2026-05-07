@@ -5,6 +5,7 @@
   const requestIdEl = document.getElementById('requestId');
   const statusEl = document.getElementById('statusText');
   const codeEl = document.getElementById('codeText');
+  const copyCodeBtn = document.getElementById('copyCodeBtn');
   const expiresEl = document.getElementById('expiresAt');
   const tipEl = document.getElementById('tipText');
 
@@ -31,7 +32,11 @@
   }
 
   function setCode(v) {
-    codeEl.textContent = v || '-';
+    const text = v || '-';
+    codeEl.textContent = text;
+    if (copyCodeBtn) {
+      copyCodeBtn.disabled = !v || text === '-';
+    }
   }
 
   function setRequestId(v) {
@@ -94,6 +99,32 @@
   async function testConnection() {
     const resp = await fetch(apiBase + '/public/connection-test', { method: 'GET' });
     return await resp.json();
+  }
+
+  async function copyCurrentCode() {
+    const code = String(codeEl.textContent || '').trim();
+    if (!code || code === '-') {
+      setTip('No code available to copy');
+      return;
+    }
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = code;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setTip('验证码已复制');
+    } catch (_err) {
+      setTip('复制失败，请手动复制');
+    }
   }
 
   async function runOnePoll() {
@@ -227,6 +258,14 @@
       finishWaiting();
     }
   });
+
+  if (copyCodeBtn) {
+    copyCodeBtn.addEventListener('click', function () {
+      copyCurrentCode().catch(function () {
+        setTip('复制失败，请手动复制');
+      });
+    });
+  }
 
   syncButtons();
   testBtn.click();
