@@ -137,7 +137,7 @@ function renderHtml(nonce: string): string {
   <main class="card">
     <section class="head">
       <h1 class="title">閭楠岃瘉鐮佹帴鏀?/h1>
-      <p class="desc">杈撳叆浣犵殑閭鍦板潃锛岀郴缁熶細鑷姩鍒涘缓 1 灏忔椂鏈夋晥鐨勬帴鐮佷换鍔″苟杞缁撴灉銆?/p>
+      <p class="desc">输入你的邮箱地址，系统会创建 1 分钟有效的接码任务，并按固定节奏自动轮询。</p>
     </section>
     <section class="body">
       <label for="aliasEmail">閭鍦板潃锛堢ず渚嬶細main_openai@2925.com锛?/label>
@@ -152,7 +152,6 @@ function renderHtml(nonce: string): string {
         <div class="kv"><div class="k">杩囨湡鏃堕棿</div><div id="expiresAt">-</div></div>
         <div class="kv"><div class="k">鏈€鏂版彁绀?/div><div id="tipText">绛夊緟鍒涘缓浠诲姟</div></div>
       </div>
-      <p class="foot">瀹夊叏璇存槑锛氶〉闈笉浼氫繚瀛樼鐞嗗憳瀵嗛挜锛涙瘡涓换鍔￠兘鏈夌嫭绔嬭闂护鐗岋紝鍙兘鏌ヨ鑷繁鐨勪换鍔°€?/p>
     </section>
   </main>
 

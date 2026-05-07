@@ -274,7 +274,7 @@
 function formatStatus(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'pending') return '等待中';
-  if (s === 'found') return '已找到';
+  if (s === 'found') return '已接收';
   if (s === 'expired') return '已过期';
   if (s === 'cancelled') return '已取消';
   if (s === 'failed') return '失败';
