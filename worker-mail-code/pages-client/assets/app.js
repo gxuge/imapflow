@@ -9,8 +9,8 @@
   const tipEl = document.getElementById('tipText');
 
   const apiBase = '/api';
-  const POLL_INTERVAL_MS = 20000;
-  const MAX_POLL_TIMES = 3;
+  const POLL_INTERVAL_MS = 10000;
+  const MAX_POLL_TIMES = 6;
 
   let pollTimer = null;
   let currentRequestId = '';
@@ -83,6 +83,14 @@
     return await resp.json();
   }
 
+  async function triggerFetch(requestId, accessToken) {
+    const resp = await fetch(apiBase + '/public/requests/' + encodeURIComponent(requestId) + '/fetch', {
+      method: 'POST',
+      headers: { 'x-access-token': accessToken }
+    });
+    return await resp.json();
+  }
+
   async function testConnection() {
     const resp = await fetch(apiBase + '/public/connection-test', { method: 'GET' });
     return await resp.json();
@@ -95,6 +103,7 @@
     pollCount += 1;
     setTip('正在等待中，第 ' + pollCount + '/' + MAX_POLL_TIMES + ' 次查询...');
 
+    await triggerFetch(currentRequestId, currentAccessToken);
     const data = await queryRequest(currentRequestId, currentAccessToken);
     if (!data || !data.ok) {
       setTip((data && data.error) ? ('查询失败：' + data.error) : '查询失败');
@@ -131,7 +140,7 @@
     if (pollCount >= MAX_POLL_TIMES) {
       setCode('-');
       setStatus('failed');
-      setTip('轮询 3 次仍未获取验证码，请稍后重试');
+      setTip('轮询 6 次仍未获取验证码，请稍后重试');
       isFinished = true;
       stopPolling();
       finishWaiting();
@@ -140,7 +149,7 @@
 
   function startPollingLoop() {
     resetPollState();
-    setTip('任务已创建，20 秒后开始第 1 次查询...');
+    setTip('任务已创建，10 秒后开始第 1 次查询...');
 
     pollTimer = setInterval(function () {
       runOnePoll().catch(function () {

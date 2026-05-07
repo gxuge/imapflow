@@ -248,10 +248,10 @@ curl 'https://<your-worker>/api/emails/recent?limit=20' \
   -H 'Authorization: Bearer <ADMIN_TOKEN>'
 ```
 
-### 手动触发轮询
+### 按需触发 IMAP 拉取（管理接口）
 
 ```bash
-curl -X POST 'https://<your-worker>/api/poll-now' \
+curl -X POST 'https://<your-worker>/api/requests/req_xxx/fetch' \
   -H 'Authorization: Bearer <ADMIN_TOKEN>'
 ```
 
@@ -283,16 +283,16 @@ curl 'https://<your-worker>/api/public/requests/req_xxx' \
   -H 'x-access-token: token_xxx'
 ```
 
-## 10) Cron
+### 公开接口：按需触发 IMAP 拉取（前端调用）
 
-`wrangler.toml` 已设置每分钟运行：
-
-```toml
-[triggers]
-crons = ["* * * * *"]
+```bash
+curl -X POST 'https://<your-worker>/api/public/requests/req_xxx/fetch' \
+  -H 'x-access-token: token_xxx'
 ```
 
-Worker 每次 Cron 会：
+## 10) 按需拉取模式
+
+Worker 仅在调用 `.../fetch` 接口时执行一次拉取：
 1. 插入 `poll_runs` 开始记录
 2. IMAP 登录 + 扫描近 N 分钟邮件
 3. 去重后写 `emails` 与 `processed_messages`
@@ -305,7 +305,7 @@ Worker 每次 Cron 会：
 
 ```mermaid
 flowchart TD
-  A[Cron 每分钟触发] --> B[pollMailbox]
+  A[前端/管理端调用 fetch] --> B[pollMailbox]
   B --> C[IMAP 短连接扫描邮件]
   C --> D[解析头/正文 + 提取 alias + 提取 code]
   D --> E{processed_messages 已处理?}

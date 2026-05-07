@@ -160,6 +160,8 @@ function renderHtml(nonce: string): string {
       let pollTimer = null;
       let currentRequestId = '';
       let currentAccessToken = '';
+      let pollCount = 0;
+      const MAX_POLL_TIMES = 6;
 
       function setTip(v) { tipEl.textContent = v; }
       function setStatus(v) {
@@ -175,6 +177,11 @@ function renderHtml(nonce: string): string {
           clearInterval(pollTimer);
           pollTimer = null;
         }
+      }
+
+      function resetPolling() {
+        pollCount = 0;
+        stopPolling();
       }
 
       async function createRequest(aliasEmail) {
@@ -195,8 +202,25 @@ function renderHtml(nonce: string): string {
         return await resp.json();
       }
 
+      async function triggerFetch(requestId, accessToken) {
+        const url = '/api/public/requests/' + encodeURIComponent(requestId) + '/fetch';
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'x-access-token': accessToken }
+        });
+        return await resp.json();
+      }
+
       async function pollOnce() {
         if (!currentRequestId || !currentAccessToken) return;
+        pollCount += 1;
+        if (pollCount > MAX_POLL_TIMES) {
+          setStatus('failed');
+          setTip('轮询 6 次仍未获取验证码，请稍后重试');
+          stopPolling();
+          return;
+        }
+        await triggerFetch(currentRequestId, currentAccessToken);
         const data = await queryRequest(currentRequestId, currentAccessToken);
         if (!data || !data.ok) {
           setTip((data && data.error) ? ('查询失败：' + data.error) : '查询失败');
@@ -226,6 +250,7 @@ function renderHtml(nonce: string): string {
         }
 
         stopPolling();
+        resetPolling();
         setRequestId('-');
         setStatus('-');
         setCode('-');
@@ -242,13 +267,13 @@ function renderHtml(nonce: string): string {
 
           currentRequestId = data.requestId;
           currentAccessToken = data.accessToken;
+          resetPolling();
           setRequestId(data.requestId);
           setStatus(data.status || 'pending');
           setExpires(data.expiresAt || '-');
-          setTip('任务已创建，开始轮询');
+          setTip('任务已创建，10 秒后开始第 1 次查询...');
 
-          await pollOnce();
-          pollTimer = setInterval(pollOnce, Math.max(3000, Number(data.pollIntervalMs || 5000)));
+          pollTimer = setInterval(pollOnce, Math.max(3000, Number(data.pollIntervalMs || 10000)));
         } catch (_err) {
           setTip('网络错误，请稍后重试');
         } finally {

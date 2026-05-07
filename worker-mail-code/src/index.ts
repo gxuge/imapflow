@@ -1,7 +1,6 @@
 ﻿import { handleApi } from './routes/api';
 import { handleWeb } from './routes/web';
 import { logEvent } from './services/events';
-import { pollMailbox } from './services/poll';
 import type { Env } from './types';
 import { jsonError, withCors } from './utils/http';
 
@@ -23,12 +22,5 @@ export default {
       await logEvent(env, 'api_error', null, null, { message });
       return jsonError(message, 500, request, env);
     }
-  },
-
-  /**
-   * Cron 入口：每分钟触发一次短轮询。
-   */
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(pollMailbox(env, 'cron'));
   }
 };

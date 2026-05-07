@@ -90,7 +90,7 @@ npx wrangler d1 execute mail-code-db --remote --file=./schema.sql
 
 1. 打开 `https://<worker-domain>/health`，返回 `ok=true`。
 2. 用 `ADMIN_TOKEN` 调用：
-   - `POST /api/poll-now`
+   - `POST /api/requests/{requestId}/fetch`
 3. 在 D1 `poll_runs` 看是否写入成功。
 4. 在 `Logs` 查看是否有 IMAP 登录失败或配置缺失。
 

@@ -43,6 +43,10 @@ export async function handleApi(request: Request, env: Env): Promise<Response> {
   if (reqMatch && method === 'GET') {
     return handleGetRequest(reqMatch[1], request, env);
   }
+  const reqFetchMatch = url.pathname.match(/^\/api\/requests\/([^/]+)\/fetch$/);
+  if (reqFetchMatch && method === 'POST') {
+    return handleFetchRequest(reqFetchMatch[1], request, env);
+  }
 
   const aliasMatch = url.pathname.match(/^\/api\/aliases\/([^/]+)\/latest$/);
   if (aliasMatch && method === 'GET') {
@@ -51,11 +55,6 @@ export async function handleApi(request: Request, env: Env): Promise<Response> {
 
   if (url.pathname === '/api/emails/recent' && method === 'GET') {
     return handleRecentEmails(url, request, env);
-  }
-
-  if (url.pathname === '/api/poll-now' && method === 'POST') {
-    const result = await pollMailbox(env, 'manual');
-    return json(result, result.ok ? 200 : 500, request, env);
   }
 
   if (url.pathname === '/api/cleanup' && method === 'POST') {
@@ -83,6 +82,10 @@ async function handlePublicApi(url: URL, request: Request, env: Env): Promise<Re
   const match = url.pathname.match(/^\/api\/public\/requests\/([^/]+)$/);
   if (match && method === 'GET') {
     return handlePublicGetRequest(match[1], url, request, env);
+  }
+  const fetchMatch = url.pathname.match(/^\/api\/public\/requests\/([^/]+)\/fetch$/);
+  if (fetchMatch && method === 'POST') {
+    return handlePublicFetchRequest(fetchMatch[1], request, env);
   }
 
   return jsonError('not_found', 404, request, env);
@@ -215,7 +218,7 @@ async function handlePublicCreateRequest(request: Request, env: Env): Promise<Re
       status: 'pending',
       aliasEmail,
       expiresAt,
-      pollIntervalMs: 5000
+      pollIntervalMs: 10000
     },
     200,
     request,
@@ -282,6 +285,52 @@ async function handlePublicGetRequest(
   );
 }
 
+async function handlePublicFetchRequest(
+  requestId: string,
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const accessToken = (request.headers.get('x-access-token') ?? '').trim();
+  if (!accessToken) return jsonError('missing_access_token', 401, request, env);
+
+  const pass = await verifyPublicAccess(env, requestId, accessToken);
+  if (!pass) return jsonError('unauthorized', 401, request, env);
+
+  const result = await fetchRequestCodeNow(env, requestId, 'public');
+  if (!result) return jsonError('request_not_found', 404, request, env);
+  if (!result.ok) {
+    return json(
+      {
+        ok: false,
+        requestId: result.request.request_id,
+        status: result.request.status,
+        error: result.error ?? 'imap_fetch_failed'
+      },
+      500,
+      request,
+      env
+    );
+  }
+
+  return json(
+    {
+      ok: true,
+      requestId: result.request.request_id,
+      status: result.request.status,
+      code: result.request.status === 'found' ? result.request.code : null,
+      aliasEmail: result.request.alias_email,
+      fromEmail: result.request.from_email,
+      subject: result.request.subject,
+      receivedAt: result.request.email_received_at,
+      expiresAt: result.request.expires_at,
+      fetch: result.fetch
+    },
+    200,
+    request,
+    env
+  );
+}
+
 async function handleGetRequest(requestId: string, request: Request, env: Env): Promise<Response> {
   const nowIso = new Date().toISOString();
   await env.DB.prepare(
@@ -322,6 +371,46 @@ async function handleGetRequest(requestId: string, request: Request, env: Env): 
       subject: row.subject,
       receivedAt: row.email_received_at,
       expiresAt: row.expires_at
+    },
+    200,
+    request,
+    env
+  );
+}
+
+async function handleFetchRequest(
+  requestId: string,
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const result = await fetchRequestCodeNow(env, requestId, 'admin');
+  if (!result) return jsonError('request_not_found', 404, request, env);
+  if (!result.ok) {
+    return json(
+      {
+        ok: false,
+        requestId: result.request.request_id,
+        status: result.request.status,
+        error: result.error ?? 'imap_fetch_failed'
+      },
+      500,
+      request,
+      env
+    );
+  }
+
+  return json(
+    {
+      ok: true,
+      requestId: result.request.request_id,
+      status: result.request.status,
+      code: result.request.status === 'found' ? result.request.code : null,
+      aliasEmail: result.request.alias_email,
+      fromEmail: result.request.from_email,
+      subject: result.request.subject,
+      receivedAt: result.request.email_received_at,
+      expiresAt: result.request.expires_at,
+      fetch: result.fetch
     },
     200,
     request,
@@ -390,4 +479,112 @@ async function handleRecentEmails(url: URL, request: Request, env: Env): Promise
 
   const rows = await env.DB.prepare(sql).bind(limit).all();
   return json({ ok: true, count: rows.results?.length ?? 0, items: rows.results ?? [] }, 200, request, env);
+}
+
+type RequestRow = {
+  request_id: string;
+  alias_email: string;
+  status: string;
+  code: string | null;
+  from_email: string | null;
+  subject: string | null;
+  email_received_at: string | null;
+  expires_at: string;
+};
+
+async function fetchRequestCodeNow(
+  env: Env,
+  requestId: string,
+  source: 'admin' | 'public'
+): Promise<
+  | null
+  | {
+      ok: boolean;
+      request: RequestRow;
+      fetch: { scannedCount: number; processedCount: number; runId?: number };
+      error?: string;
+    }
+> {
+  let fetchStats: { scannedCount: number; processedCount: number; runId?: number } = {
+    scannedCount: 0,
+    processedCount: 0
+  };
+  const nowIso = new Date().toISOString();
+  await env.DB.prepare(
+    `UPDATE code_requests
+     SET status = 'expired', updated_at = ?
+     WHERE request_id = ? AND status = 'pending' AND expires_at <= ?`
+  )
+    .bind(nowIso, requestId, nowIso)
+    .run();
+
+  const before = await env.DB.prepare(
+    `SELECT request_id, alias_email, status, code, from_email, subject, email_received_at, expires_at
+     FROM code_requests WHERE request_id = ? LIMIT 1`
+  )
+    .bind(requestId)
+    .first<RequestRow>();
+  if (!before) return null;
+
+  if (before.status === 'pending') {
+    await logEvent(env, 'imap_fetch_requested', before.request_id, before.alias_email, { source });
+    const fetch = await pollMailbox(env, 'manual');
+    fetchStats = {
+      scannedCount: fetch.scannedCount,
+      processedCount: fetch.processedCount,
+      runId: fetch.runId
+    };
+    if (!fetch.ok) {
+      const afterFail = await env.DB.prepare(
+        `SELECT request_id, alias_email, status, code, from_email, subject, email_received_at, expires_at
+         FROM code_requests WHERE request_id = ? LIMIT 1`
+      )
+        .bind(requestId)
+        .first<RequestRow>();
+      if (!afterFail) return null;
+      return {
+        ok: false,
+        request: afterFail,
+        fetch: fetchStats,
+        error: fetch.error
+      };
+    }
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT request_id, alias_email, status, code, from_email, subject, email_received_at, expires_at
+     FROM code_requests WHERE request_id = ? LIMIT 1`
+  )
+    .bind(requestId)
+    .first<RequestRow>();
+  if (!row) return null;
+
+  if (row.status === 'pending' && row.expires_at <= new Date().toISOString()) {
+    await env.DB.prepare(
+      `UPDATE code_requests
+       SET status = 'expired', updated_at = ?
+       WHERE request_id = ? AND status = 'pending'`
+    )
+      .bind(new Date().toISOString(), requestId)
+      .run();
+    const expired = await env.DB.prepare(
+      `SELECT request_id, alias_email, status, code, from_email, subject, email_received_at, expires_at
+       FROM code_requests WHERE request_id = ? LIMIT 1`
+    )
+      .bind(requestId)
+      .first<RequestRow>();
+    if (expired) {
+      return {
+        ok: true,
+        request: expired,
+        fetch: fetchStats
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    request: row,
+    fetch: fetchStats
+  };
 }

@@ -36,22 +36,26 @@ export function maskEmail(email?: string | null): string | null {
 }
 
 function writeLog(level: LogLevel, event: string, fields: LogFields): void {
+  const sanitizedFields = sanitizeFields(fields);
+  const errorText =
+    typeof sanitizedFields.error === 'string' && sanitizedFields.error
+      ? ` (${safeTrim(sanitizedFields.error, 120)})`
+      : '';
   const payload = {
-    level,
+    message: `${event}${errorText}`,
     event,
-    time: new Date().toISOString(),
-    ...sanitizeFields(fields)
+    ts: new Date().toISOString(),
+    ...sanitizedFields
   };
-  const text = JSON.stringify(payload);
   if (level === 'error') {
-    console.error(text);
+    console.error(payload);
     return;
   }
   if (level === 'warn') {
-    console.warn(text);
+    console.warn(payload);
     return;
   }
-  console.info(text);
+  console.info(payload);
 }
 
 function sanitizeFields(fields: LogFields): LogFields {
