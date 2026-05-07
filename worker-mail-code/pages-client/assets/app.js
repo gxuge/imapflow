@@ -26,9 +26,17 @@
   }
 
   function setStatus(v) {
-    statusEl.className = '';
+    statusEl.className = 'badge';
     statusEl.textContent = formatStatus(v) || '-';
-    if (v) statusEl.classList.add('status-' + String(v).toLowerCase());
+    if (!v) {
+      statusEl.classList.add('badge-ghost');
+      return;
+    }
+    const s = String(v).toLowerCase();
+    if (s === 'pending') statusEl.classList.add('badge-warning');
+    else if (s === 'found') statusEl.classList.add('badge-success');
+    else if (s === 'expired' || s === 'cancelled' || s === 'failed') statusEl.classList.add('badge-error');
+    else statusEl.classList.add('badge-ghost');
   }
 
   function setCode(v) {
@@ -287,3 +295,38 @@ function formatDateTime(value) {
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString('zh-CN', { hour12: false });
 }
+
+// Initialize lucide icons
+if (typeof lucide !== 'undefined') {
+  lucide.createIcons();
+}
+
+// Theme toggle logic
+(function() {
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+  const iconSun = document.getElementById('iconSun');
+  const iconMoon = document.getElementById('iconMoon');
+
+  if (!themeToggleBtn || !iconSun || !iconMoon) return;
+
+  function applyThemeIcons() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    if (currentTheme === 'dark') {
+      iconSun.classList.remove('hidden');
+      iconMoon.classList.add('hidden');
+    } else {
+      iconMoon.classList.remove('hidden');
+      iconSun.classList.add('hidden');
+    }
+  }
+
+  themeToggleBtn.addEventListener('click', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    applyThemeIcons();
+  });
+
+  applyThemeIcons();
+})();

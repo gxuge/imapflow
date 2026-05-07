@@ -1,44 +1,106 @@
-﻿<!doctype html>
-<html lang="zh-CN">
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>邮箱接码</title>
+  <script>
+    // Theme initialization to prevent flash
+    (function() {
+      var savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      } else {
+        var prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+        document.documentElement.setAttribute('data-theme', prefersLight ? 'light' : 'dark');
+      }
+    })();
+  </script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="/assets/style.css" />
 </head>
-<body>
-  <main class="card">
-    <section class="head">
-      <h1 class="title">邮箱验证码接收</h1>
-      <p class="desc">输入你的邮箱地址，系统会创建 1 分钟有效的接码任务，并按固定节奏自动轮询。</p>
-    </section>
+<body class="bg-base-200 min-h-screen flex items-center justify-center p-4 antialiased transition-colors duration-300">
+  
+  <!-- Theme Toggle Floating Button -->
+  <button id="themeToggleBtn" class="btn btn-circle btn-ghost absolute top-4 right-4 text-base-content/70 hover:text-base-content">
+    <i data-lucide="sun" id="iconSun" class="hidden w-6 h-6"></i>
+    <i data-lucide="moon" id="iconMoon" class="hidden w-6 h-6"></i>
+  </button>
 
-    <section class="body">
-      <div class="row">
-        <button id="testBtn" type="button" class="btn-secondary">连接测试</button>
-      </div>
+  <main class="card bg-base-100 shadow-xl w-full max-w-2xl border border-base-300">
+    <div class="card-body p-6 sm:p-8">
+      
+      <!-- Header -->
+      <section class="flex flex-col gap-2 mb-2">
+        <h1 class="card-title text-2xl font-bold flex items-center gap-2">
+          <i data-lucide="mail"></i> 邮箱验证码接收
+        </h1>
+        <p class="text-base-content/70 text-sm">
+          输入你的邮箱地址，系统会创建 1 分钟有效的接码任务，并按固定节奏自动轮询。
+        </p>
+      </section>
 
-      <label for="aliasEmail">邮箱地址（示例：main_openai@2925.com）</label>
-      <div class="row">
-        <input id="aliasEmail" type="email" maxlength="120" placeholder="请输入邮箱地址" autocomplete="off" />
-        <button id="startBtn" type="button">开始接码</button>
-      </div>
+      <div class="divider mt-0 mb-4"></div>
 
-      <div class="panel">
-        <div class="kv"><div class="k">任务 ID</div><div id="requestId" class="mono">-</div></div>
-        <div class="kv"><div class="k">任务状态</div><div id="statusText">-</div></div>
-        <div class="kv">
-          <div class="k">验证码</div>
-          <div class="code-row">
-            <div id="codeText" class="mono code-text">-</div>
-            <button id="copyCodeBtn" type="button" class="btn-copy" disabled>复制</button>
+      <!-- Controls -->
+      <section class="flex flex-col gap-5">
+        <div class="flex justify-end">
+          <button id="testBtn" type="button" class="btn btn-outline btn-sm shadow-sm">
+            <i data-lucide="activity" class="w-4 h-4"></i> 连接测试
+          </button>
+        </div>
+
+        <div class="form-control w-full">
+          <label class="label pt-0" for="aliasEmail">
+            <span class="label-text font-medium text-base-content/80">邮箱地址（示例：main_openai@2925.com）</span>
+          </label>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input id="aliasEmail" type="email" maxlength="120" placeholder="请输入邮箱地址" class="input input-bordered flex-1 focus:outline-primary transition-all shadow-sm" autocomplete="off" />
+            <button id="startBtn" type="button" class="btn btn-primary shadow-sm">开始接码</button>
           </div>
         </div>
-        <div class="kv"><div class="k">过期时间</div><div id="expiresAt">-</div></div>
-        <div class="kv"><div class="k">最新提示</div><div id="tipText">等待创建任务</div></div>
-      </div>
 
-    </section>
+        <!-- Data Panel -->
+        <div class="mt-2 bg-base-200/50 rounded-box p-4 flex flex-col gap-3 border border-base-300/50">
+          
+          <div class="flex flex-col sm:flex-row justify-between py-1.5 border-b border-base-300/50">
+            <div class="text-base-content/70 font-medium w-24 shrink-0">任务 ID</div>
+            <div id="requestId" class="font-mono text-sm break-all text-right">-</div>
+          </div>
+          
+          <div class="flex flex-col sm:flex-row justify-between py-1.5 border-b border-base-300/50">
+            <div class="text-base-content/70 font-medium w-24 shrink-0">任务状态</div>
+            <div class="text-right">
+              <span id="statusText" class="badge badge-ghost">-</span>
+            </div>
+          </div>
+          
+          <div class="flex flex-col sm:flex-row justify-between items-center py-1.5 border-b border-base-300/50">
+            <div class="text-base-content/70 font-medium w-24 shrink-0">验证码</div>
+            <div class="flex items-center gap-2 justify-end w-full">
+              <div id="codeText" class="font-mono text-2xl sm:text-3xl font-bold tracking-widest text-primary">-</div>
+              <button id="copyCodeBtn" type="button" class="btn btn-ghost btn-sm btn-square" disabled title="复制验证码">
+                <i data-lucide="copy" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="flex flex-col sm:flex-row justify-between py-1.5 border-b border-base-300/50">
+            <div class="text-base-content/70 font-medium w-24 shrink-0">过期时间</div>
+            <div id="expiresAt" class="text-sm text-right">-</div>
+          </div>
+          
+          <div class="flex flex-col sm:flex-row justify-between py-1.5">
+            <div class="text-base-content/70 font-medium w-24 shrink-0">最新提示</div>
+            <div id="tipText" class="text-sm text-info text-right">等待创建任务</div>
+          </div>
+          
+        </div>
+      </section>
+
+    </div>
   </main>
 
   <script src="/assets/app.js" defer></script>
